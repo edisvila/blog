@@ -1,0 +1,38 @@
+services:
+  db:
+    image: postgres:15
+    container_name: blog_db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - blog_internal
+
+  backend:
+    build: ./backend
+    container_name: blog_backend
+    env_file:
+      - .env
+    depends_on:
+      - db
+    networks:
+      - blog_internal
+      - proxy_network
+
+  frontend:
+    build: ./frontend
+    container_name: blog_frontend
+    networks:
+      - proxy_network
+
+networks:
+  blog_internal:
+    driver: bridge
+  proxy_network:
+    external: true
+
+volumes:
+  db_data:
