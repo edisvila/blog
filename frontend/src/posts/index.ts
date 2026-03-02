@@ -14,7 +14,7 @@ export interface PostMeta {
 export const posts: PostMeta[] = [
   {
     slug: 'blog-einfuehrung',
-    title: 'Einen Blog bauen, den ich eigentlich nicht brauche',
+    title: 'Warum ich meinen Blog selbst gebaut habe',
     category: 'Entwicklung',
     content: blogEinfuehrung,
   },

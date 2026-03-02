@@ -1,4 +1,4 @@
-# Einen Blog bauen, den ich eigentlich nicht brauche
+# Warum ich meinen Blog selbst gebaut habe
 
 **Kategorie:** Entwicklung
 

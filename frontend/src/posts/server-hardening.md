@@ -257,6 +257,50 @@ sudo systemctl enable --now fail2ban
 sudo fail2ban-client status sshd
 ```
 
+## SSH weiter absichern
+
+Pedro, ein Bekannter der den Artikel gelesen hat, hat einen guten Hinweis gegeben: Port 22 wird von Bots massiv gescannt. fail2ban hilft, aber es gibt weitere Optionen.
+
+**Port wechseln** – bringt wenig, aber reduziert Rauschen in den Logs. Security through obscurity, kein echter Schutz.
+
+**IP-Allowlist** – SSH nur von bekannten IPs erlauben. Sicherste Lösung, aber unpraktisch wenn man von wechselnden IPs arbeitet.
+
+**VPN** – SSH nur über VPN erreichbar. Sauberste Lösung für Teams, etwas Aufwand für ein persönliches Projekt.
+
+**Port-Knocking** – die eleganteste Option: SSH-Port bleibt komplett geschlossen. Erst wenn eine bestimmte Sequenz von Verbindungsversuchen auf vordefinierten Ports gemacht wird, öffnet die Firewall SSH temporär für diese IP. Von außen sieht Port 22 aus als würde er nicht existieren.
+
+Das Schöne: es lässt sich direkt in nftables implementieren ohne extra Dienste. Die Idee sind dynamische Sets mit Timeouts – jeder erfolgreiche Knock fügt die IP ins nächste Set ein, erst nach der kompletten Sequenz wird SSH erlaubt:
+
+```
+table inet filter {
+    set knock_1 { type ipv4_addr; flags timeout; timeout 5s; }
+    set knock_2 { type ipv4_addr; flags timeout; timeout 5s; }
+    set ssh_allowed { type ipv4_addr; flags timeout; timeout 30s; }
+
+    chain input {
+        # Knock-Sequenz: erst Port 1111, dann 2222, dann 3333
+        tcp dport 1111 add @knock_1 { ip saddr } drop
+        ip saddr @knock_1 tcp dport 2222 add @knock_2 { ip saddr } drop
+        ip saddr @knock_2 tcp dport 3333 add @ssh_allowed { ip saddr } drop
+
+        # SSH nur für IPs die die Sequenz abgeschlossen haben
+        ip saddr @ssh_allowed tcp dport 22 accept
+    }
+}
+```
+
+Der Client macht vor dem SSH-Login drei schnelle Verbindungsversuche:
+
+```bash
+# knock.sh
+nmap -Pn --host-timeout 100 --max-retries 0 -p 1111 $HOST
+nmap -Pn --host-timeout 100 --max-retries 0 -p 2222 $HOST
+nmap -Pn --host-timeout 100 --max-retries 0 -p 3333 $HOST
+ssh user@$HOST
+```
+
+Ein Vorbehalt: wer den Traffic mitschneidet kann die Sequenz ablesen. Port-Knocking ist eine zusätzliche Schicht, kein Ersatz für SSH-Keys. Für diesen Blog habe ich es bewusst weggelassen – fail2ban reicht für ein persönliches Projekt. Aber es ist das interessanteste Konzept das Pedro erwähnt hat.
+
 ## Das Ergebnis
 
 Die finale `/etc/nftables.conf` ist deutlich schlanker als mein erster Versuch:
