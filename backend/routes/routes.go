@@ -1,26 +1,31 @@
 package routes
 
 import (
-	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
-
 	"blog_backend/api"
 	"blog_backend/handler"
+
+	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 func SetupRouter(db *gorm.DB) *gin.Engine {
 	r := gin.Default()
 
-	// Health Check
 	r.GET("/api/health", handler.HealthCheck)
 
-	// API
 	h := handler.New(db)
-	apiGroup := r.Group("/api")
-	api.RegisterHandlersWithOptions(
-		apiGroup,
-		api.NewStrictHandler(h, nil),
-		api.GinServerOptions{},
-	)
+	strictHandler := api.NewStrictHandler(h, nil)
+
+	// Public routes
+	public := r.Group("/api")
+	public.POST("/auth/login", func(c *gin.Context) { strictHandler.PostAuthLogin(c) })
+	public.GET("/posts", func(c *gin.Context) { strictHandler.GetPosts(c) })
+	public.GET("/posts/:slug", func(c *gin.Context) { strictHandler.GetPostsSlug(c, c.Param("slug")) })
+
+	// Protected routes
+	protected := r.Group("/api")
+	protected.Use(handler.AuthMiddleware())
+	protected.POST("/posts", func(c *gin.Context) { strictHandler.PostPosts(c) })
+
 	return r
 }
