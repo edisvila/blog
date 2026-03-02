@@ -1,23 +1,23 @@
 openapi: 3.0.3
 info:
   title: Blog API
-  version: 1.0.0
-
+  version: 1.0.1
 paths:
   /posts:
     get:
       summary: Alle Posts abrufen
       tags: [Posts]
       responses:
-        '200':
+        "200":
           description: Liste aller Posts
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/Post'
-
+                  $ref: "#/components/schemas/Post"
+        "500":
+          description: Server Fehler
     post:
       summary: Post erstellen (Admin)
       tags: [Posts]
@@ -28,16 +28,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PostInput'
+              $ref: "#/components/schemas/PostInput"
       responses:
-        '201':
+        "201":
           description: Post erstellt
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Post'
-        '401':
+                $ref: "#/components/schemas/Post"
+        "400":
+          description: Ungültige Eingabe
+        "401":
           description: Unauthorized
+        "409":
+          description: Slug bereits vorhanden
 
   /posts/{slug}:
     get:
@@ -50,13 +54,65 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Post gefunden
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Post'
-        '404':
+                $ref: "#/components/schemas/Post"
+        "404":
+          description: Post nicht gefunden
+
+    put:
+      summary: Post aktualisieren (Admin)
+      tags: [Posts]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PostInput"
+      responses:
+        "200":
+          description: Post aktualisiert
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+        "400":
+          description: Ungültige Eingabe
+        "401":
+          description: Unauthorized
+        "404":
+          description: Post nicht gefunden
+        "409":
+          description: Slug bereits vorhanden
+
+    delete:
+      summary: Post löschen (Admin)
+      tags: [Posts]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Post gelöscht
+        "401":
+          description: Unauthorized
+        "404":
           description: Post nicht gefunden
 
   /auth/login:
@@ -68,15 +124,15 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/LoginInput'
+              $ref: "#/components/schemas/LoginInput"
       responses:
-        '200':
+        "200":
           description: JWT Token
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TokenResponse'
-        '401':
+                $ref: "#/components/schemas/TokenResponse"
+        "401":
           description: Falsche Credentials
 
 components:
@@ -85,7 +141,6 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-
   schemas:
     Post:
       type: object
@@ -102,7 +157,6 @@ components:
         created_at:
           type: string
           format: date-time
-
     PostInput:
       type: object
       required: [title, content]
@@ -111,7 +165,6 @@ components:
           type: string
         content:
           type: string
-
     LoginInput:
       type: object
       required: [username, password]
@@ -120,9 +173,13 @@ components:
           type: string
         password:
           type: string
-
     TokenResponse:
       type: object
       properties:
         token:
+          type: string
+    ErrorResponse:
+      type: object
+      properties:
+        message:
           type: string

@@ -26,6 +26,8 @@ func SetupRouter(db *gorm.DB) *gin.Engine {
 	protected := r.Group("/api")
 	protected.Use(handler.AuthMiddleware())
 	protected.POST("/posts", func(c *gin.Context) { strictHandler.PostPosts(c) })
+	protected.PUT("/posts/:slug", func(c *gin.Context) { strictHandler.PutPostsSlug(c, c.Param("slug")) })
+	protected.DELETE("/posts/:slug", func(c *gin.Context) { strictHandler.DeletePostsSlug(c, c.Param("slug")) })
 
 	return r
 }

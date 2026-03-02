@@ -48,11 +48,16 @@ func (h *Handler) GetPostsSlug(ctx context.Context, request api.GetPostsSlugRequ
 }
 
 func (h *Handler) PostPosts(ctx context.Context, request api.PostPostsRequestObject) (api.PostPostsResponseObject, error) {
-	slug := slug.Make(request.Body.Title)
+	newSlug := slug.Make(request.Body.Title)
+
+	var existing model.Post
+	if h.db.Where("slug = ?", newSlug).First(&existing).Error == nil {
+		return api.PostPosts409Response{}, nil
+	}
 
 	post := model.Post{
 		Title:   request.Body.Title,
-		Slug:    slug,
+		Slug:    newSlug,
 		Content: request.Body.Content,
 	}
 
@@ -69,4 +74,51 @@ func (h *Handler) PostPosts(ctx context.Context, request api.PostPostsRequestObj
 		Content:   &post.Content,
 		CreatedAt: &post.CreatedAt,
 	}), nil
+}
+
+func (h *Handler) PutPostsSlug(ctx context.Context, request api.PutPostsSlugRequestObject) (api.PutPostsSlugResponseObject, error) {
+	var post model.Post
+	result := h.db.Where("slug = ?", request.Slug).First(&post)
+	if result.Error != nil {
+		return api.PutPostsSlug404Response{}, nil
+	}
+
+	newSlug := slug.Make(request.Body.Title)
+
+	var existing model.Post
+	if h.db.Where("slug = ? AND id != ?", newSlug, post.ID).First(&existing).Error == nil {
+		return api.PutPostsSlug409Response{}, nil
+	}
+
+	post.Title = request.Body.Title
+	post.Slug = newSlug
+	post.Content = request.Body.Content
+
+	result = h.db.Save(&post)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	return api.PutPostsSlug200JSONResponse(api.Post{
+		Id:        &post.ID,
+		Title:     &post.Title,
+		Slug:      &post.Slug,
+		Content:   &post.Content,
+		CreatedAt: &post.CreatedAt,
+	}), nil
+}
+
+func (h *Handler) DeletePostsSlug(ctx context.Context, request api.DeletePostsSlugRequestObject) (api.DeletePostsSlugResponseObject, error) {
+	var post model.Post
+	result := h.db.Where("slug = ?", request.Slug).First(&post)
+	if result.Error != nil {
+		return api.DeletePostsSlug404Response{}, nil
+	}
+
+	result = h.db.Delete(&post)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	return api.DeletePostsSlug204Response{}, nil
 }

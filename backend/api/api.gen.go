@@ -59,6 +59,9 @@ type PostAuthLoginJSONRequestBody = LoginInput
 // PostPostsJSONRequestBody defines body for PostPosts for application/json ContentType.
 type PostPostsJSONRequestBody = PostInput
 
+// PutPostsSlugJSONRequestBody defines body for PutPostsSlug for application/json ContentType.
+type PutPostsSlugJSONRequestBody = PostInput
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// Admin Login
@@ -70,9 +73,15 @@ type ServerInterface interface {
 	// Post erstellen (Admin)
 	// (POST /posts)
 	PostPosts(c *gin.Context)
+	// Post löschen (Admin)
+	// (DELETE /posts/{slug})
+	DeletePostsSlug(c *gin.Context, slug string)
 	// Einzelnen Post abrufen
 	// (GET /posts/{slug})
 	GetPostsSlug(c *gin.Context, slug string)
+	// Post aktualisieren (Admin)
+	// (PUT /posts/{slug})
+	PutPostsSlug(c *gin.Context, slug string)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -125,6 +134,32 @@ func (siw *ServerInterfaceWrapper) PostPosts(c *gin.Context) {
 	siw.Handler.PostPosts(c)
 }
 
+// DeletePostsSlug operation middleware
+func (siw *ServerInterfaceWrapper) DeletePostsSlug(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "slug" -------------
+	var slug string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "slug", c.Param("slug"), &slug, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter slug: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	c.Set(BearerAuthScopes, []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.DeletePostsSlug(c, slug)
+}
+
 // GetPostsSlug operation middleware
 func (siw *ServerInterfaceWrapper) GetPostsSlug(c *gin.Context) {
 
@@ -147,6 +182,32 @@ func (siw *ServerInterfaceWrapper) GetPostsSlug(c *gin.Context) {
 	}
 
 	siw.Handler.GetPostsSlug(c, slug)
+}
+
+// PutPostsSlug operation middleware
+func (siw *ServerInterfaceWrapper) PutPostsSlug(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "slug" -------------
+	var slug string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "slug", c.Param("slug"), &slug, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter slug: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	c.Set(BearerAuthScopes, []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.PutPostsSlug(c, slug)
 }
 
 // GinServerOptions provides options for the Gin server.
@@ -179,7 +240,9 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/auth/login", wrapper.PostAuthLogin)
 	router.GET(options.BaseURL+"/posts", wrapper.GetPosts)
 	router.POST(options.BaseURL+"/posts", wrapper.PostPosts)
+	router.DELETE(options.BaseURL+"/posts/:slug", wrapper.DeletePostsSlug)
 	router.GET(options.BaseURL+"/posts/:slug", wrapper.GetPostsSlug)
+	router.PUT(options.BaseURL+"/posts/:slug", wrapper.PutPostsSlug)
 }
 
 type PostAuthLoginRequestObject struct {
@@ -223,6 +286,14 @@ func (response GetPosts200JSONResponse) VisitGetPostsResponse(w http.ResponseWri
 	return json.NewEncoder(w).Encode(response)
 }
 
+type GetPosts500Response struct {
+}
+
+func (response GetPosts500Response) VisitGetPostsResponse(w http.ResponseWriter) error {
+	w.WriteHeader(500)
+	return nil
+}
+
 type PostPostsRequestObject struct {
 	Body *PostPostsJSONRequestBody
 }
@@ -240,11 +311,59 @@ func (response PostPosts201JSONResponse) VisitPostPostsResponse(w http.ResponseW
 	return json.NewEncoder(w).Encode(response)
 }
 
+type PostPosts400Response struct {
+}
+
+func (response PostPosts400Response) VisitPostPostsResponse(w http.ResponseWriter) error {
+	w.WriteHeader(400)
+	return nil
+}
+
 type PostPosts401Response struct {
 }
 
 func (response PostPosts401Response) VisitPostPostsResponse(w http.ResponseWriter) error {
 	w.WriteHeader(401)
+	return nil
+}
+
+type PostPosts409Response struct {
+}
+
+func (response PostPosts409Response) VisitPostPostsResponse(w http.ResponseWriter) error {
+	w.WriteHeader(409)
+	return nil
+}
+
+type DeletePostsSlugRequestObject struct {
+	Slug string `json:"slug"`
+}
+
+type DeletePostsSlugResponseObject interface {
+	VisitDeletePostsSlugResponse(w http.ResponseWriter) error
+}
+
+type DeletePostsSlug204Response struct {
+}
+
+func (response DeletePostsSlug204Response) VisitDeletePostsSlugResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeletePostsSlug401Response struct {
+}
+
+func (response DeletePostsSlug401Response) VisitDeletePostsSlugResponse(w http.ResponseWriter) error {
+	w.WriteHeader(401)
+	return nil
+}
+
+type DeletePostsSlug404Response struct {
+}
+
+func (response DeletePostsSlug404Response) VisitDeletePostsSlugResponse(w http.ResponseWriter) error {
+	w.WriteHeader(404)
 	return nil
 }
 
@@ -273,6 +392,56 @@ func (response GetPostsSlug404Response) VisitGetPostsSlugResponse(w http.Respons
 	return nil
 }
 
+type PutPostsSlugRequestObject struct {
+	Slug string `json:"slug"`
+	Body *PutPostsSlugJSONRequestBody
+}
+
+type PutPostsSlugResponseObject interface {
+	VisitPutPostsSlugResponse(w http.ResponseWriter) error
+}
+
+type PutPostsSlug200JSONResponse Post
+
+func (response PutPostsSlug200JSONResponse) VisitPutPostsSlugResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type PutPostsSlug400Response struct {
+}
+
+func (response PutPostsSlug400Response) VisitPutPostsSlugResponse(w http.ResponseWriter) error {
+	w.WriteHeader(400)
+	return nil
+}
+
+type PutPostsSlug401Response struct {
+}
+
+func (response PutPostsSlug401Response) VisitPutPostsSlugResponse(w http.ResponseWriter) error {
+	w.WriteHeader(401)
+	return nil
+}
+
+type PutPostsSlug404Response struct {
+}
+
+func (response PutPostsSlug404Response) VisitPutPostsSlugResponse(w http.ResponseWriter) error {
+	w.WriteHeader(404)
+	return nil
+}
+
+type PutPostsSlug409Response struct {
+}
+
+func (response PutPostsSlug409Response) VisitPutPostsSlugResponse(w http.ResponseWriter) error {
+	w.WriteHeader(409)
+	return nil
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// Admin Login
@@ -284,9 +453,15 @@ type StrictServerInterface interface {
 	// Post erstellen (Admin)
 	// (POST /posts)
 	PostPosts(ctx context.Context, request PostPostsRequestObject) (PostPostsResponseObject, error)
+	// Post löschen (Admin)
+	// (DELETE /posts/{slug})
+	DeletePostsSlug(ctx context.Context, request DeletePostsSlugRequestObject) (DeletePostsSlugResponseObject, error)
 	// Einzelnen Post abrufen
 	// (GET /posts/{slug})
 	GetPostsSlug(ctx context.Context, request GetPostsSlugRequestObject) (GetPostsSlugResponseObject, error)
+	// Post aktualisieren (Admin)
+	// (PUT /posts/{slug})
+	PutPostsSlug(ctx context.Context, request PutPostsSlugRequestObject) (PutPostsSlugResponseObject, error)
 }
 
 type StrictHandlerFunc = strictgin.StrictGinHandlerFunc
@@ -392,6 +567,33 @@ func (sh *strictHandler) PostPosts(ctx *gin.Context) {
 	}
 }
 
+// DeletePostsSlug operation middleware
+func (sh *strictHandler) DeletePostsSlug(ctx *gin.Context, slug string) {
+	var request DeletePostsSlugRequestObject
+
+	request.Slug = slug
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.DeletePostsSlug(ctx, request.(DeletePostsSlugRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeletePostsSlug")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(DeletePostsSlugResponseObject); ok {
+		if err := validResponse.VisitDeletePostsSlugResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetPostsSlug operation middleware
 func (sh *strictHandler) GetPostsSlug(ctx *gin.Context, slug string) {
 	var request GetPostsSlugRequestObject
@@ -419,21 +621,58 @@ func (sh *strictHandler) GetPostsSlug(ctx *gin.Context, slug string) {
 	}
 }
 
+// PutPostsSlug operation middleware
+func (sh *strictHandler) PutPostsSlug(ctx *gin.Context, slug string) {
+	var request PutPostsSlugRequestObject
+
+	request.Slug = slug
+
+	var body PutPostsSlugJSONRequestBody
+	if err := ctx.ShouldBindJSON(&body); err != nil {
+		ctx.Status(http.StatusBadRequest)
+		ctx.Error(err)
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.PutPostsSlug(ctx, request.(PutPostsSlugRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutPostsSlug")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(PutPostsSlugResponseObject); ok {
+		if err := validResponse.VisitPutPostsSlugResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/7RVTU/cPBD+K9G876GV0s1SOOUGValAVEKFigNaVSaZzRocOx1PihaU/16NzZLsbvio",
-	"Sm+OPR7PPB+Teyhc3TiLlj3k9+CLBdYqLE9cpe2RbVqWr4Zcg8Qaw1mjvL91VMqalw1CDp5J2wq6FFqP",
-	"ZFWNI4ddCoQ/W01YQn7ZR6Z9xlm6uuSurrFgyXjq/EgRhbOMNhyU6AvSDWtnIYevim5Kd2uTVUS6XWRB",
-	"qBjLHyrcnzuqZQWlYvzAOpS0dUcP+9WWsUKSfW/aahQJ1myegGG0xyfQHjT6J08MkY5h6WOqMZTP3Q3a",
-	"b+gbZz1uV8Fy/KpmBBIsWtK8PBM9xftXqAhpv+VF/3W4wv344hzSqD7JFE97DhbMDXSSWNu5C0XEvuHA",
-	"uCrZPz2CFH4h+SiAncl0MpWWXINWNRpy2J1MJ7tBZ7wI5WSq5UVmROSh1weJScdKdHRUQh5IkYqDFyBC",
-	"ip4PXLncIEY1jdFFuJlde2d7M8nqf8I55PBf1rste7BaNvBZt04bU4thI1ISyv44nb7Zy+uEh8fXjXR8",
-	"cZ6EIMFyb7qzbbVDZSRb8omwRMtaGR/5b+ta0RJy2C9rbZMVgKwqL3oMMphJZCbIh9YqHGHgC/JpCPhL",
-	"HDRj7V8CJMyZXs+KSC3HcDnRnjFRxiAlsbqNno3BeJCoK2rnOGw9Xph16TOa61t+e731g+ZVctt504fH",
-	"0JT9BMkzGsNPKu27FcM60ndYro0YyC/Xh8vlrJsN2RjmR5u8C4p8P8LIoxqzexnp3YuiPJPBLzOFVI2M",
-	"5EMtMlDCnIEU4n8w/iE2sU4HuG3O1Nk/tP2zPFQ4b225cvzeNg8hyupiMYxdU/9nbe/QWLTBAs84oOu6",
-	"3wEAAP//7E5ENoAIAAA=",
+	"H4sIAAAAAAAC/8RVQU/cOhD+K5HfO7wnpZul0ENzgxYqEJVQAXFAq8qbzCYGx07HY9CC8rd66o0/Vtlm",
+	"SZbNbqGF7c2xx+OZ7/vmyy3LdFVrBYoMS2+ZyUqouF8e6kKofVVbcl816hqQBPizmhtzrTF3a5rWwFJm",
+	"CIUqWBMzawAVr6DnsIkZwjcrEHKWnreRcZtxFM8u6fEFZOQyHmnTU0SmFYHyBzmYDEVNQiuWss8cL3N9",
+	"raJZRLxYZIbACfKv3N+faKzciuWc4A0JX9LCHdHtVyiCAtDtG2mLXiRIkFwCQ2+PS9DuNPqcJ7pIh7D4",
+	"IVUfyif6EtQXMLVWBharIHf8pGYcJJBZFDQ9dnoK98fAEXDbUtl+7c1wPzg7YXFQn8sUTlsOSqKaNS6x",
+	"UBPtiwh9sx2pi2j7aJ/F7ArQBAFsDIaDoWtJ16B4LVjKNgfDwabXGZW+nIRbKhPpRO57vZeY65g7He3n",
+	"LPWkuIr9LLAAKRja0fn0ETG8rqXI/M3kwmjVDpNb/YswYSn7J2mnLbkftaQzZ808bYQW/EagxJf9djh8",
+	"sZfnCfePzw/SwdlJ5IMcllvDjcVR2+PSZYs+IOSgSHBpAv+2qjhOWcq280qoaAYg8cI4PXoZjFxk4pD3",
+	"rRXQw8AnoCMf8Ic4CILK/AoQ7zOtnjkin/bhcigMQcSlBIxCdU3M3oWK5iOPAa8Aoz0opfOKeWSkhHA9",
+	"4mO0E+gCFNKOmniFMltgXl6VrR09SZQbL/pwH+ZuPwI0BFJS0GMP3qequPshSRQQ7QpV8DEsle6pcg6g",
+	"UdxAHoLe9/AnbRGNAUGQia40llzlbhw6FsfS83lzOx81oy7P3cpBRf/5ifi/h+uHaUhu3S+lCeVIIFjk",
+	"/6Pf9zddjd7ZkFdAgMZX5GzNux2LWfgbh//UYy7jDi+PnX20wPPWIkS+vQLk3XeTlfQMuJflUiIrXcaJ",
+	"/U2sQykroY5Xu806IR2uZ3RaPJ+L/QO4u0LdgFSgvGutNi3b51l2Lej+dTNcE6P8kiyXwgjAVzLEp6rk",
+	"tc2z0+lqA22anwEAAP//3GZ2atEMAAA=",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file
