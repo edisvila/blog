@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 
+	"blog_backend/model"
+
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -19,6 +21,11 @@ func ConnectDB() (*gorm.DB, error) {
 	)
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	if err != nil {
+		return nil, err
+	}
+
+	err = db.AutoMigrate(&model.Post{}, &model.User{})
 	if err != nil {
 		return nil, err
 	}

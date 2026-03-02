@@ -1,0 +1,7 @@
+package: api
+generate:
+  - strict-server
+  - gin-server
+  - types
+  - spec
+output: api.gen.go
